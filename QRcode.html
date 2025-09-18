@@ -2,161 +2,344 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>파스텔 QR 코드 생성기</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>파스텔 QR 테트리스 게임</title>
     <!-- Tailwind CSS 로드 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- QR 코드 생성 라이브러리 로드 -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <!-- Tone.js (레트로 음악) 로드 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <!-- Google Fonts 로드 (귀여운 폰트) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
     <style>
-        /* Jua 폰트 적용 및 기본 스타일 */
         body {
             font-family: 'Jua', sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
+            touch-action: manipulation;
         }
-        /* QR 코드가 생성될 때 부드러운 전환 효과 */
+        /* QR 생성기 관련 스타일 */
         #qrcode-container img, #qrcode-container canvas {
-            transition: all 0.3s ease-in-out;
-            transform: scale(0.95);
-            opacity: 0;
             animation: fadeIn 0.5s forwards;
         }
         @keyframes fadeIn {
-            to {
-                transform: scale(1);
-                opacity: 1;
-            }
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
         }
-        /* 커스텀 색상 피커 스타일 */
-        .color-picker-wrapper {
-            position: relative;
-            width: 40px;
-            height: 40px;
-        }
-        .color-picker-wrapper input[type="color"] {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            cursor: pointer;
-        }
-        .color-picker-wrapper .color-display {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
+        .color-picker-wrapper { position: relative; width: 40px; height: 40px; }
+        .color-picker-wrapper input[type="color"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        .color-picker-wrapper .color-display { width: 100%; height: 100%; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        
+        /* 테트리스 게임 관련 스타일 */
+        .pixelated { image-rendering: pixelated; }
+        .penguin { position: absolute; width: 80px; height: auto; animation: bounce 2s infinite ease-in-out; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+        .penguin-1 { bottom: 5%; left: 5%; animation-delay: 0s; }
+        .penguin-2 { bottom: 10%; right: 2%; transform: scaleX(-1); animation-delay: 0.5s; }
+        .penguin-3 { bottom: 40%; left: 2%; animation-delay: 1s; }
+        .mobile-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; width: 250px; margin-top: 20px; }
+        .control-btn { background-color: rgba(255, 255, 255, 0.5); border: none; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.2s ease; }
+        .control-btn:active { transform: scale(0.9); box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
+        .left { grid-column: 1; grid-row: 2; } .right { grid-column: 3; grid-row: 2; } .down { grid-column: 2; grid-row: 2; } .rotate { grid-column: 3; grid-row: 1; } .drop { grid-column: 1; grid-row: 1; }
+        #game-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.5); color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 10; }
+        .hidden { display: none; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-rose-100 to-teal-100 min-h-screen flex items-center justify-center p-4">
+<body class="bg-gradient-to-br from-rose-100 to-teal-100 min-h-screen flex items-center justify-center p-4 overflow-hidden">
 
-    <div class="w-full max-w-md bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 md:p-8 text-center transition-all duration-300">
-        <!-- 제목 -->
-        <h1 class="text-4xl font-bold text-gray-700 mb-2">QR 코드 생성기</h1>
-        <p class="text-gray-500 mb-6">원하는 텍스트나 링크를 입력하세요!</p>
-
-        <!-- QR 코드 표시 영역 -->
-        <div id="qrcode-container" class="w-56 h-56 md:w-64 md:h-64 mx-auto mb-6 bg-white p-4 rounded-2xl shadow-inner flex items-center justify-center">
-            <!-- QR 코드가 여기에 생성됩니다 -->
-        </div>
-
-        <!-- 텍스트/URL 입력 필드 -->
-        <div class="mb-6">
-            <label for="text-input" class="sr-only">QR 코드 내용</label>
-            <input type="text" id="text-input" placeholder="기본값: 펭귄 테트리스 게임!" class="w-full px-4 py-3 bg-white/70 border-2 border-transparent focus:border-pink-300 focus:ring-pink-300 rounded-xl text-center text-lg text-gray-600 placeholder-gray-400 transition-all duration-300 shadow-sm">
-        </div>
-
-        <!-- 색상 선택 옵션 -->
-        <div class="flex justify-center items-center gap-8 mb-8">
-            <!-- QR 코드 색상 -->
-            <div class="flex flex-col items-center">
-                <label for="color-dark" class="text-gray-600 mb-2">코드 색상</label>
-                <div class="color-picker-wrapper">
-                    <div id="color-dark-display" class="color-display" style="background-color: #333333;"></div>
-                    <input type="color" id="color-dark" value="#333333">
+    <!-- QR 코드 생성기 섹션 -->
+    <div id="generator-section" class="w-full">
+        <div class="w-full max-w-md bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 md:p-8 text-center transition-all duration-300 mx-auto">
+            <h1 class="text-4xl font-bold text-gray-700 mb-2">QR 코드 생성기</h1>
+            <p class="text-gray-500 mb-6">펭귄 테트리스 게임 QR코드를 만들어보세요!</p>
+            <div id="qrcode-container" class="w-56 h-56 md:w-64 md:h-64 mx-auto mb-6 bg-white p-4 rounded-2xl shadow-inner flex items-center justify-center"></div>
+            <div class="mb-6">
+                <input type="text" id="text-input" placeholder="다른 링크나 텍스트를 입력해도 돼요!" class="w-full px-4 py-3 bg-white/70 border-2 border-transparent focus:border-pink-300 focus:ring-pink-300 rounded-xl text-center text-lg text-gray-600 placeholder-gray-400 transition-all duration-300 shadow-sm">
+            </div>
+            <div class="flex justify-center items-center gap-8 mb-8">
+                <div>
+                    <label for="color-dark" class="text-gray-600 mb-2 block">코드 색상</label>
+                    <div class="color-picker-wrapper mx-auto">
+                        <div id="color-dark-display" class="color-display" style="background-color: #333333;"></div>
+                        <input type="color" id="color-dark" value="#333333">
+                    </div>
+                </div>
+                <div>
+                    <label for="color-light" class="text-gray-600 mb-2 block">배경 색상</label>
+                    <div class="color-picker-wrapper mx-auto">
+                        <div id="color-light-display" class="color-display" style="background-color: #ffffff;"></div>
+                        <input type="color" id="color-light" value="#ffffff">
+                    </div>
                 </div>
             </div>
-            <!-- 배경 색상 -->
-            <div class="flex flex-col items-center">
-                <label for="color-light" class="text-gray-600 mb-2">배경 색상</label>
-                <div class="color-picker-wrapper">
-                    <div id="color-light-display" class="color-display" style="background-color: #ffffff;"></div>
-                    <input type="color" id="color-light" value="#ffffff">
-                </div>
-            </div>
+            <button id="download-btn" class="w-full bg-pink-400 hover:bg-pink-500 text-white font-bold py-3 px-6 rounded-xl text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                QR 코드 다운로드
+            </button>
         </div>
-        
-        <!-- 다운로드 버튼 -->
-        <button id="download-btn" class="w-full bg-pink-400 hover:bg-pink-500 text-white font-bold py-3 px-6 rounded-xl text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
-            QR 코드 다운로드
-        </button>
     </div>
 
-    <script>
-        // DOM 요소 가져오기
-        const textInput = document.getElementById('text-input');
-        const colorDarkInput = document.getElementById('color-dark');
-        const colorLightInput = document.getElementById('color-light');
-        const colorDarkDisplay = document.getElementById('color-dark-display');
-        const colorLightDisplay = document.getElementById('color-light-display');
-        const qrcodeContainer = document.getElementById('qrcode-container');
-        const downloadBtn = document.getElementById('download-btn');
+    <!-- 테트리스 게임 섹션 -->
+    <div id="game-section" class="hidden w-full">
+        <!-- 펭귄 장식 -->
+        <img src="https://placehold.co/80x80/333/FFF?text=🐧" class="penguin penguin-1" alt="Bouncing Penguin 1">
+        <img src="https://placehold.co/80x80/333/FFF?text=🐧" class="penguin penguin-2" alt="Bouncing Penguin 2">
+        <img src="https://placehold.co/80x80/333/FFF?text=🐧" class="penguin penguin-3" alt="Bouncing Penguin 3">
         
-        let qrcode = null;
+        <div class="relative w-full max-w-lg flex flex-col md:flex-row items-center md:items-start justify-center gap-4 mx-auto">
+            <div class="relative">
+                <canvas id="tetris" width="240" height="480" class="bg-white/50 backdrop-blur-sm rounded-lg shadow-2xl"></canvas>
+                <div id="game-overlay">
+                    <h2 class="text-4xl font-bold mb-4">파스텔 펭귄 테트리스</h2>
+                    <button id="start-btn" class="bg-pink-400 hover:bg-pink-500 text-white font-bold py-3 px-8 rounded-xl text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                        게임 시작
+                    </button>
+                </div>
+            </div>
+            <div class="flex md:flex-col gap-4">
+                <div class="bg-white/50 backdrop-blur-sm p-4 rounded-lg shadow-xl text-center w-32">
+                    <h2 class="text-xl font-bold text-gray-700">점수</h2>
+                    <p id="score" class="text-3xl text-pink-500">0</p>
+                </div>
+                <div class="bg-white/50 backdrop-blur-sm p-4 rounded-lg shadow-xl text-center w-32">
+                    <h2 class="text-xl font-bold text-gray-700">다음</h2>
+                    <canvas id="next" width="80" height="80" class="mx-auto mt-2 pixelated"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="mobile-controls md:hidden mx-auto">
+            <button id="btn-drop" class="control-btn drop">🚀</button>
+            <button id="btn-rotate" class="control-btn rotate">🔄</button>
+            <button id="btn-left" class="control-btn left">◀️</button>
+            <button id="btn-down" class="control-btn down">🔽</button>
+            <button id="btn-right" class="control-btn right">▶️</button>
+        </div>
+    </div>
 
-        // QR 코드를 생성하거나 업데이트하는 함수
-        function generateQRCode() {
-            // 이전 QR 코드가 있다면 컨테이너 비우기
-            qrcodeContainer.innerHTML = '';
+<script>
+// --- 공통 로직 (페이지 로드 시 실행) ---
+const generatorSection = document.getElementById('generator-section');
+const gameSection = document.getElementById('game-section');
 
-            const text = textInput.value || './pastel_tetris.html'; // 입력값이 없으면 게임 링크를 기본값으로 사용
-            const colorDark = colorDarkInput.value;
-            const colorLight = colorLightInput.value;
+window.addEventListener('load', () => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('game')) {
+        // URL에 ?game=true가 있으면 게임을 표시
+        generatorSection.classList.add('hidden');
+        gameSection.classList.remove('hidden');
+        initGame(); // 게임 초기화
+    } else {
+        // 없으면 QR 코드 생성기 표시
+        generatorSection.classList.remove('hidden');
+        gameSection.classList.add('hidden');
+        initQRCodeGenerator(); // QR 생성기 초기화
+    }
+});
 
-            // 새로운 QR 코드 인스턴스 생성
-            qrcode = new QRCode(qrcodeContainer, {
-                text: text,
-                width: 256,
-                height: 256,
-                colorDark: colorDark,
-                colorLight: colorLight,
-                correctLevel: QRCode.CorrectLevel.H
-            });
-            
-            // 색상 피커 옆 동그라미 색상 업데이트
-            colorDarkDisplay.style.backgroundColor = colorDark;
-            colorLightDisplay.style.backgroundColor = colorLight;
-        }
 
-        // 텍스트 입력, 색상 변경 시 실시간으로 QR 코드 업데이트
-        textInput.addEventListener('input', generateQRCode);
-        colorDarkInput.addEventListener('input', generateQRCode);
-        colorLightInput.addEventListener('input', generateQRCode);
+// --- QR 코드 생성기 로직 ---
+function initQRCodeGenerator() {
+    const textInput = document.getElementById('text-input');
+    const colorDarkInput = document.getElementById('color-dark');
+    const colorLightInput = document.getElementById('color-light');
+    const colorDarkDisplay = document.getElementById('color-dark-display');
+    const colorLightDisplay = document.getElementById('color-light-display');
+    const qrcodeContainer = document.getElementById('qrcode-container');
+    const downloadBtn = document.getElementById('download-btn');
+    let qrcode = null;
 
-        // 다운로드 버튼 클릭 이벤트
-        downloadBtn.addEventListener('click', () => {
-            const canvas = qrcodeContainer.querySelector('canvas');
-            if (canvas) {
-                const link = document.createElement('a');
-                link.download = 'qrcode.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            } else {
-                alert('먼저 QR 코드를 생성해주세요.');
-            }
+    function generateQRCode() {
+        qrcodeContainer.innerHTML = '';
+        // 현재 페이지 주소에 ?game=true 파라미터를 붙여 QR 코드를 생성
+        const gameURL = window.location.origin + window.location.pathname + '?game=true';
+        const text = textInput.value || gameURL;
+        
+        qrcode = new QRCode(qrcodeContainer, {
+            text: text,
+            width: 256,
+            height: 256,
+            colorDark: colorDarkInput.value,
+            colorLight: colorLightInput.value,
+            correctLevel: QRCode.CorrectLevel.H
         });
+        
+        colorDarkDisplay.style.backgroundColor = colorDarkInput.value;
+        colorLightDisplay.style.backgroundColor = colorLightInput.value;
+    }
 
-        // 페이지 로드 시 기본 QR 코드 생성
-        window.onload = generateQRCode;
-    </script>
+    textInput.addEventListener('input', generateQRCode);
+    colorDarkInput.addEventListener('input', generateQRCode);
+    colorLightInput.addEventListener('input', generateQRCode);
+
+    downloadBtn.addEventListener('click', () => {
+        const canvas = qrcodeContainer.querySelector('canvas');
+        if (canvas) {
+            const link = document.createElement('a');
+            link.download = 'tetris_qrcode.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    });
+    
+    generateQRCode(); // 초기 QR 코드 생성
+}
+
+
+// --- 테트리스 게임 로직 ---
+function initGame() {
+    const canvas = document.getElementById('tetris');
+    if (!canvas) return; // 게임 섹션이 아닐 경우 실행 방지
+    const context = canvas.getContext('2d');
+    const nextCanvas = document.getElementById('next');
+    const nextContext = nextCanvas.getContext('2d');
+    const scoreElement = document.getElementById('score');
+    const overlay = document.getElementById('game-overlay');
+    const startBtn = document.getElementById('start-btn');
+    
+    const COLS = 10, ROWS = 20, BLOCK_SIZE = 24;
+    context.scale(BLOCK_SIZE, BLOCK_SIZE);
+    nextContext.scale(BLOCK_SIZE / 2, BLOCK_SIZE / 2);
+
+    let board, score, dropCounter, dropInterval, lastTime, isMusicPlaying, gamePaused, player, nextPiece;
+    
+    const colors = [null, '#fecaca', '#fed7aa', '#fef08a', '#d9f99d', '#bfdbfe', '#e9d5ff', '#fbcfe8'];
+    const SHAPES = [
+        [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], [[2,2],[2,2]], [[0,3,0],[3,3,3],[0,0,0]],
+        [[0,4,4],[4,4,0],[0,0,0]], [[5,5,0],[0,5,5],[0,0,0]], [[6,0,0],[6,6,6],[0,0,0]], [[0,0,7],[7,7,7],[0,0,0]]
+    ];
+
+    let synth;
+
+    function createBoard() { return Array.from({ length: ROWS }, () => Array(COLS).fill(0)); }
+    function draw() {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        drawMatrix(board, {x: 0, y: 0});
+        drawMatrix(player.matrix, player.pos);
+    }
+    function drawMatrix(matrix, offset) {
+        matrix.forEach((row, y) => {
+            row.forEach((value, x) => {
+                if (value !== 0) {
+                    context.fillStyle = colors[value];
+                    context.fillRect(x + offset.x, y + offset.y, 1, 1);
+                    context.strokeStyle = 'rgba(0,0,0,0.2)';
+                    context.lineWidth = 0.1;
+                    context.strokeRect(x + offset.x, y + offset.y, 1, 1);
+                }
+            });
+        });
+    }
+    function drawNextPiece() {
+        nextContext.clearRect(0,0,nextCanvas.width, nextCanvas.height);
+        const matrix = nextPiece;
+        const offset = { x: (4 - matrix[0].length) / 2, y: (4 - matrix.length) / 2 };
+        matrix.forEach((row, y) => {
+            row.forEach((value, x) => {
+                if (value !== 0) { nextContext.fillStyle = colors[value]; nextContext.fillRect(x + offset.x, y + offset.y, 1, 1); }
+            });
+        });
+    }
+    function merge() { player.matrix.forEach((row, y) => { row.forEach((value, x) => { if (value !== 0) { board[y + player.pos.y][x + player.pos.x] = value; } }); }); }
+    function collide() {
+        const [m, o] = [player.matrix, player.pos];
+        for (let y = 0; y < m.length; ++y) {
+            for (let x = 0; x < m[y].length; ++x) { if (m[y][x] !== 0 && (board[y + o.y] && board[y + o.y][x + o.x]) !== 0) return true; }
+        }
+        return false;
+    }
+    function rotate(matrix, dir) {
+        for (let y = 0; y < matrix.length; ++y) {
+            for (let x = 0; x < y; ++x) { [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]]; }
+        }
+        if (dir > 0) { matrix.forEach(row => row.reverse()); } else { matrix.reverse(); }
+    }
+    function playerRotate(dir) {
+        const pos = player.pos.x; let offset = 1;
+        rotate(player.matrix, dir);
+        while (collide()) {
+            player.pos.x += offset; offset = -(offset + (offset > 0 ? 1 : -1));
+            if (offset > player.matrix[0].length) { rotate(player.matrix, -dir); player.pos.x = pos; return; }
+        }
+    }
+    function playerMove(dir) { player.pos.x += dir; if (collide()) { player.pos.x -= dir; } }
+    function playerDrop() {
+        player.pos.y++;
+        if (collide()) { player.pos.y--; merge(); playerReset(); sweep(); updateScore(); }
+        dropCounter = 0;
+    }
+    function playerHardDrop() {
+        while(!collide()) { player.pos.y++; }
+        player.pos.y--; merge(); playerReset(); sweep(); updateScore(); dropCounter = 0;
+    }
+    function randomPiece() { return SHAPES[Math.floor(Math.random() * SHAPES.length)]; }
+    function playerReset() {
+        player.matrix = nextPiece; nextPiece = randomPiece();
+        player.pos.y = 0;
+        player.pos.x = (COLS / 2 | 0) - (player.matrix[0].length / 2 | 0);
+        if (collide()) { gameOver(); }
+        drawNextPiece();
+    }
+    function gameOver() {
+        gamePaused = true;
+        if(isMusicPlaying) synth.triggerRelease();
+        isMusicPlaying = false;
+        overlay.style.display = 'flex';
+        overlay.innerHTML = `<h2 class="text-3xl font-bold mb-4">게임 오버!</h2><p class="text-xl mb-4">점수: ${score}</p><button id="restart-btn" class="bg-pink-400 hover:bg-pink-500 text-white font-bold py-3 px-8 rounded-xl text-lg">다시 시작</button>`;
+        document.getElementById('restart-btn').addEventListener('click', startGame);
+    }
+    function sweep() {
+        let rowCount = 1;
+        outer: for (let y = board.length - 1; y > 0; --y) {
+            for (let x = 0; x < board[y].length; ++x) { if (board[y][x] === 0) continue outer; }
+            const row = board.splice(y, 1)[0].fill(0); board.unshift(row); ++y;
+            score += rowCount * 10; rowCount *= 2;
+        }
+    }
+    function updateScore() { scoreElement.innerText = score; }
+    function update(time = 0) {
+        if(gamePaused) return;
+        const deltaTime = time - lastTime; lastTime = time;
+        dropCounter += deltaTime;
+        if (dropCounter > dropInterval) { playerDrop(); }
+        draw();
+        requestAnimationFrame(update);
+    }
+    function playMusic() {
+        if (isMusicPlaying) return;
+        Tone.start().then(() => {
+            synth = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.2 } }).toDestination();
+            const pattern = new Tone.Sequence((time, note) => { synth.triggerAttackRelease(note, '8n', time); }, ['C4', 'E4', 'G4', 'C5', 'E4', 'G4', 'C5', 'G4'], '4n').start(0);
+            Tone.Transport.start();
+            isMusicPlaying = true;
+        });
+    }
+    
+    document.addEventListener('keydown', event => {
+        if(gamePaused) return;
+        if (event.key === 'ArrowLeft') playerMove(-1); else if (event.key === 'ArrowRight') playerMove(1); else if (event.key === 'ArrowDown') playerDrop(); else if (event.key === 'ArrowUp') playerRotate(1); else if (event.key === ' ') playerHardDrop();
+    });
+    
+    document.getElementById('btn-left').addEventListener('click', () => playerMove(-1));
+    document.getElementById('btn-right').addEventListener('click', () => playerMove(1));
+    document.getElementById('btn-down').addEventListener('click', () => playerDrop());
+    document.getElementById('btn-rotate').addEventListener('click', () => playerRotate(1));
+    document.getElementById('btn-drop').addEventListener('click', () => playerHardDrop());
+
+    function startGame() {
+        board = createBoard(); score = 0; dropCounter = 0; dropInterval = 1000; lastTime = 0;
+        player = { pos: {x: 0, y: 0}, matrix: null, score: 0 }; nextPiece = randomPiece();
+        updateScore();
+        playerReset();
+        gamePaused = false;
+        overlay.style.display = 'none';
+        playMusic();
+        update();
+    }
+    
+    startBtn.addEventListener('click', startGame);
+    drawNextPiece();
+}
+</script>
 </body>
 </html>
 
