@@ -71,7 +71,7 @@
         <!-- 텍스트/URL 입력 필드 -->
         <div class="mb-6">
             <label for="text-input" class="sr-only">QR 코드 내용</label>
-            <input type="text" id="text-input" placeholder="여기에 내용을 입력하세요..." class="w-full px-4 py-3 bg-white/70 border-2 border-transparent focus:border-pink-300 focus:ring-pink-300 rounded-xl text-center text-lg text-gray-600 placeholder-gray-400 transition-all duration-300 shadow-sm">
+            <input type="text" id="text-input" placeholder="기본값: 펭귄 테트리스 게임!" class="w-full px-4 py-3 bg-white/70 border-2 border-transparent focus:border-pink-300 focus:ring-pink-300 rounded-xl text-center text-lg text-gray-600 placeholder-gray-400 transition-all duration-300 shadow-sm">
         </div>
 
         <!-- 색상 선택 옵션 -->
@@ -117,7 +117,7 @@
             // 이전 QR 코드가 있다면 컨테이너 비우기
             qrcodeContainer.innerHTML = '';
 
-            const text = textInput.value || 'https://google.com'; // 입력값이 없으면 기본값 사용
+            const text = textInput.value || './pastel_tetris.html'; // 입력값이 없으면 게임 링크를 기본값으로 사용
             const colorDark = colorDarkInput.value;
             const colorLight = colorLightInput.value;
 
@@ -159,3 +159,4 @@
     </script>
 </body>
 </html>
+
