@@ -7,4 +7,4 @@
 - 
 ## 라이브 데모
 - 포트폴리오 사이트:
-- QR Code 제너레이터: 
+- QR Code 제너레이터: https://github.com/kittymingky/portfolio/blob/master/QRcode.html
