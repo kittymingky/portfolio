@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파스텔 QR 코드 생성기</title>
+    <!-- Tailwind CSS 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- QR 코드 생성 라이브러리 로드 -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <!-- Google Fonts 로드 (귀여운 폰트) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    <style>
+        /* Jua 폰트 적용 및 기본 스타일 */
+        body {
+            font-family: 'Jua', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* QR 코드가 생성될 때 부드러운 전환 효과 */
+        #qrcode-container img, #qrcode-container canvas {
+            transition: all 0.3s ease-in-out;
+            transform: scale(0.95);
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+        @keyframes fadeIn {
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        /* 커스텀 색상 피커 스타일 */
+        .color-picker-wrapper {
+            position: relative;
+            width: 40px;
+            height: 40px;
+        }
+        .color-picker-wrapper input[type="color"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .color-picker-wrapper .color-display {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-rose-100 to-teal-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-md bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 md:p-8 text-center transition-all duration-300">
+        <!-- 제목 -->
+        <h1 class="text-4xl font-bold text-gray-700 mb-2">QR 코드 생성기</h1>
+        <p class="text-gray-500 mb-6">원하는 텍스트나 링크를 입력하세요!</p>
+
+        <!-- QR 코드 표시 영역 -->
+        <div id="qrcode-container" class="w-56 h-56 md:w-64 md:h-64 mx-auto mb-6 bg-white p-4 rounded-2xl shadow-inner flex items-center justify-center">
+            <!-- QR 코드가 여기에 생성됩니다 -->
+        </div>
+
+        <!-- 텍스트/URL 입력 필드 -->
+        <div class="mb-6">
+            <label for="text-input" class="sr-only">QR 코드 내용</label>
+            <input type="text" id="text-input" placeholder="여기에 내용을 입력하세요..." class="w-full px-4 py-3 bg-white/70 border-2 border-transparent focus:border-pink-300 focus:ring-pink-300 rounded-xl text-center text-lg text-gray-600 placeholder-gray-400 transition-all duration-300 shadow-sm">
+        </div>
+
+        <!-- 색상 선택 옵션 -->
+        <div class="flex justify-center items-center gap-8 mb-8">
+            <!-- QR 코드 색상 -->
+            <div class="flex flex-col items-center">
+                <label for="color-dark" class="text-gray-600 mb-2">코드 색상</label>
+                <div class="color-picker-wrapper">
+                    <div id="color-dark-display" class="color-display" style="background-color: #333333;"></div>
+                    <input type="color" id="color-dark" value="#333333">
+                </div>
+            </div>
+            <!-- 배경 색상 -->
+            <div class="flex flex-col items-center">
+                <label for="color-light" class="text-gray-600 mb-2">배경 색상</label>
+                <div class="color-picker-wrapper">
+                    <div id="color-light-display" class="color-display" style="background-color: #ffffff;"></div>
+                    <input type="color" id="color-light" value="#ffffff">
+                </div>
+            </div>
+        </div>
+        
+        <!-- 다운로드 버튼 -->
+        <button id="download-btn" class="w-full bg-pink-400 hover:bg-pink-500 text-white font-bold py-3 px-6 rounded-xl text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+            QR 코드 다운로드
+        </button>
+    </div>
+
+    <script>
+        // DOM 요소 가져오기
+        const textInput = document.getElementById('text-input');
+        const colorDarkInput = document.getElementById('color-dark');
+        const colorLightInput = document.getElementById('color-light');
+        const colorDarkDisplay = document.getElementById('color-dark-display');
+        const colorLightDisplay = document.getElementById('color-light-display');
+        const qrcodeContainer = document.getElementById('qrcode-container');
+        const downloadBtn = document.getElementById('download-btn');
+        
+        let qrcode = null;
+
+        // QR 코드를 생성하거나 업데이트하는 함수
+        function generateQRCode() {
+            // 이전 QR 코드가 있다면 컨테이너 비우기
+            qrcodeContainer.innerHTML = '';
+
+            const text = textInput.value || 'https://google.com'; // 입력값이 없으면 기본값 사용
+            const colorDark = colorDarkInput.value;
+            const colorLight = colorLightInput.value;
+
+            // 새로운 QR 코드 인스턴스 생성
+            qrcode = new QRCode(qrcodeContainer, {
+                text: text,
+                width: 256,
+                height: 256,
+                colorDark: colorDark,
+                colorLight: colorLight,
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            
+            // 색상 피커 옆 동그라미 색상 업데이트
+            colorDarkDisplay.style.backgroundColor = colorDark;
+            colorLightDisplay.style.backgroundColor = colorLight;
+        }
+
+        // 텍스트 입력, 색상 변경 시 실시간으로 QR 코드 업데이트
+        textInput.addEventListener('input', generateQRCode);
+        colorDarkInput.addEventListener('input', generateQRCode);
+        colorLightInput.addEventListener('input', generateQRCode);
+
+        // 다운로드 버튼 클릭 이벤트
+        downloadBtn.addEventListener('click', () => {
+            const canvas = qrcodeContainer.querySelector('canvas');
+            if (canvas) {
+                const link = document.createElement('a');
+                link.download = 'qrcode.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } else {
+                alert('먼저 QR 코드를 생성해주세요.');
+            }
+        });
+
+        // 페이지 로드 시 기본 QR 코드 생성
+        window.onload = generateQRCode;
+    </script>
+</body>
+</html>
